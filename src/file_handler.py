@@ -14,11 +14,11 @@ class FileHandler:
         Скачивает файл по ссылке (YouTube, VK, прямые mp3/mp4 и др.) и возвращает (путь к файлу, имя/титул).
         """
         ydl_opts = {
-            'outtmpl': tempfile.mktemp(suffix='.%(ext)s'),
+            'outtmpl': '/tmp/%(title)s.%(ext)s',
             'format': 'bestaudio/best',
             'quiet': True,
         }
-        print(f"[LOG] mktemp outtmpl: {ydl_opts['outtmpl']}")
+        print(f"[LOG] outtmpl: {ydl_opts['outtmpl']}")
         if any(url.lower().endswith(ext) for ext in ['.mp3', '.mp4', '.wav', '.m4a', '.ogg']):
             # Прямая ссылка на файл
             response = requests.get(url, stream=True)
@@ -37,6 +37,8 @@ class FileHandler:
                 info = ydl.extract_info(url, download=True)
                 file_path = ydl.prepare_filename(info)
                 print(f"[LOG] YoutubeDL file_path: {file_path}")
+                if not os.path.exists(file_path):
+                    print(f"[ERROR] Файл не создан: {file_path}")
                 title = info.get('title') or os.path.splitext(os.path.basename(file_path))[0]
                 return file_path, title
 
