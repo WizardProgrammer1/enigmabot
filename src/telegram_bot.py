@@ -2688,7 +2688,6 @@ class TelegramBot:
     def run(self):
         # Для Windows: корректная event loop policy
         if sys.platform.startswith('win'):
-            import asyncio
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         async def main():
             try:
