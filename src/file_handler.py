@@ -18,21 +18,25 @@ class FileHandler:
             'format': 'bestaudio/best',
             'quiet': True,
         }
+        print(f"[LOG] mktemp outtmpl: {ydl_opts['outtmpl']}")
         if any(url.lower().endswith(ext) for ext in ['.mp3', '.mp4', '.wav', '.m4a', '.ogg']):
             # Прямая ссылка на файл
             response = requests.get(url, stream=True)
             ext = url.split('.')[-1].split('?')[0]
             fd, path = tempfile.mkstemp(suffix=f'.{ext}')
+            print(f"[LOG] mkstemp path: {path}")
             with os.fdopen(fd, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
             title = os.path.splitext(os.path.basename(url.split('?')[0]))[0]
+            print(f"[LOG] Файл скачан: {path}, title: {title}")
             return path, title
         else:
             # YouTube, VK и др. через yt-dlp
             with YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 file_path = ydl.prepare_filename(info)
+                print(f"[LOG] YoutubeDL file_path: {file_path}")
                 title = info.get('title') or os.path.splitext(os.path.basename(file_path))[0]
                 return file_path, title
 
@@ -42,8 +46,10 @@ class FileHandler:
             raise RuntimeError('Bot instance required for Telegram file download')
         file = await self.bot.get_file(file_obj.file_id)
         fd, path = tempfile.mkstemp(suffix=f'.{file_ext}')
+        print(f"[LOG] mkstemp path (Telegram): {path}")
         with os.fdopen(fd, 'wb') as f:
             await self.bot.download_file(file.file_path, f)
+        print(f"[LOG] Файл скачан из Telegram: {path}")
         return path
 
     def get_duration(self, file_path: str) -> float:
@@ -60,7 +66,9 @@ class FileHandler:
     def convert_video_to_audio(self, file_path: str) -> str:
         """Конвертирует видеофайл в аудио (wav) через ffmpeg и возвращает путь к новому файлу."""
         out_path = tempfile.mktemp(suffix='.wav')
+        print(f"[LOG] mktemp out_path (convert_video_to_audio): {out_path}")
         subprocess.run([
             'ffmpeg', '-i', file_path, '-vn', '-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1', out_path,
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(f"[LOG] Файл сконвертирован: {out_path}")
         return out_path 
