@@ -1,0 +1,9 @@
+[2025-07-05 16:03:12] TEST_MODE_TOGGLE | User: 486355497 | status: ВКЛЮЧЕН | admin: MadCatos
+[2025-07-05 16:04:44] TEST_MODE_TOGGLE | User: 2010111567 | status: ВКЛЮЧЕН | admin: aleksey2627
+[2025-07-05 16:06:52] TEST_MODE_TOGGLE | User: 1385599085 | status: ВКЛЮЧЕН | admin: kirusha_dd
+[2025-07-05 16:08:51] TEST_MODE_TOGGLE | User: 1255790341 | status: ВКЛЮЧЕН | admin: yanvd666
+[2025-07-05 16:10:37] TEST_MODE_TOGGLE | User: 972424584 | status: ВКЛЮЧЕН | admin: nemojjno
+[2025-07-05 16:12:50] TEST_MODE_TOGGLE | User: 7804883065 | status: ВКЛЮЧЕН | admin: cvcrc4
+[2025-07-05 16:12:50] TEST_MODE_TOGGLE | User: 972424584 | status: ВКЛЮЧЕН | admin: nemojjno
+[2025-07-05 16:12:50] TEST_MODE_TOGGLE | User: 972424584 | status: ВЫКЛЮЧЕН | admin: nemojjno
+[2025-07-05 20:33:45] LINKS_RECEIVED | User: 2010111567 | links: ['https://www.youtube.com/watch?v=U93RlqCgL8M'] | count: 1 | text: https://www.youtube.com/watch?v=U93RlqCgL8M

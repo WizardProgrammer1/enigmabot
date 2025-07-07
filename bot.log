@@ -1,0 +1,69 @@
+2025-06-24 21:21:48,798 [INFO] Бот запущен
+2025-06-24 21:24:33,048 [INFO] Бот запущен
+2025-06-24 21:24:59,186 [INFO] [DEBUG] Received /support_info from user_id=486355497, username=MadCatos
+2025-06-24 21:24:59,192 [INFO] [LOG] /support_info called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_info
+2025-06-24 21:25:07,591 [INFO] [DEBUG] Received /reply from user_id=486355497, username=MadCatos
+2025-06-24 21:25:07,596 [INFO] [LOG] /reply called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/reply
+2025-06-24 21:25:36,617 [INFO] [DEBUG] Received /reply from user_id=486355497, username=MadCatos
+2025-06-24 21:25:36,631 [INFO] [LOG] /reply called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/reply 4 And i you!
+2025-06-24 21:26:06,914 [INFO] [DEBUG] Received /support_info from user_id=486355497, username=MadCatos
+2025-06-24 21:26:06,918 [INFO] [LOG] /support_info called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_info
+2025-06-24 21:26:13,624 [INFO] [DEBUG] Received /support_info from user_id=486355497, username=MadCatos
+2025-06-24 21:26:13,629 [INFO] [LOG] /support_info called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_info 4
+2025-06-24 21:29:27,409 [INFO] Бот запущен
+2025-06-24 21:31:17,469 [INFO] Бот запущен
+2025-06-24 21:31:51,733 [INFO] [DEBUG] Received /support_info from user_id=486355497, username=MadCatos
+2025-06-24 21:31:51,738 [INFO] [LOG] /support_info called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_info
+2025-06-24 21:35:21,014 [INFO] Бот запущен
+2025-06-24 21:38:32,321 [INFO] Бот запущен
+2025-06-24 21:40:29,238 [INFO] Бот запущен
+2025-06-24 21:41:11,723 [INFO] [DEBUG] Received /support_off from user_id=486355497, username=MadCatos
+2025-06-24 21:41:11,728 [INFO] [LOG] /support_off called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_off
+2025-06-24 21:41:14,862 [INFO] [DEBUG] Received /support_on from user_id=486355497, username=MadCatos
+2025-06-24 21:41:14,869 [INFO] [LOG] /support_on called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_on
+2025-06-24 21:46:22,583 [INFO] Бот запущен
+2025-06-24 21:47:19,212 [INFO] [DEBUG] Received /support_off from user_id=486355497, username=MadCatos
+2025-06-24 21:47:19,217 [INFO] [LOG] /support_off called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_off
+2025-06-24 21:47:22,710 [INFO] [DEBUG] Received /support_on from user_id=486355497, username=MadCatos
+2025-06-24 21:47:22,718 [INFO] [LOG] /support_on called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_on
+2025-06-24 21:47:24,545 [INFO] [DEBUG] Received /support_info from user_id=486355497, username=MadCatos
+2025-06-24 21:47:24,552 [INFO] [LOG] /support_info called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_info
+2025-06-24 21:47:30,849 [INFO] [DEBUG] Received /support_info from user_id=486355497, username=MadCatos
+2025-06-24 21:47:30,854 [INFO] [LOG] /support_info called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_info 3
+2025-06-24 21:47:45,103 [INFO] [DEBUG] Received /reply from user_id=486355497, username=MadCatos
+2025-06-24 21:47:45,107 [INFO] [LOG] /reply called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/reply 3 Гав епта, админь иди, мяукает он тут
+2025-06-24 21:47:54,488 [INFO] ALL_ANSWER TRIGGERED: user_id=486355497, username=MadCatos, text=/all_answer
+2025-06-24 21:57:11,535 [INFO] Бот запущен
+2025-06-24 21:58:24,731 [INFO] [DEBUG] Received /support_off from user_id=486355497, username=MadCatos
+2025-06-24 21:58:24,734 [INFO] [LOG] /support_off called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_off
+2025-06-24 21:58:26,841 [INFO] [DEBUG] Received /support_on from user_id=486355497, username=MadCatos
+2025-06-24 21:58:26,848 [INFO] [LOG] /support_on called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/support_on
+2025-06-24 22:00:56,693 [INFO] Бот запущен
+2025-06-24 22:09:06,545 [INFO] Бот запущен
+2025-06-24 22:15:07,188 [INFO] Бот запущен
+2025-06-24 22:19:22,675 [INFO] Бот запущен
+2025-06-24 22:24:11,511 [INFO] Бот запущен
+2025-06-24 22:25:24,926 [INFO] ALL_ANSWER TRIGGERED: user_id=486355497, username=MadCatos, text=/all_answer
+2025-06-24 22:25:33,819 [INFO] [DEBUG] Received /reply from user_id=486355497, username=MadCatos
+2025-06-24 22:25:33,822 [INFO] [LOG] /reply called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/reply 2 n
+2025-06-24 22:25:39,805 [INFO] [DEBUG] Received /reply from user_id=486355497, username=MadCatos
+2025-06-24 22:25:39,819 [INFO] [LOG] /reply called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/reply 1 ,e
+2025-06-24 22:33:44,132 [INFO] Бот запущен
+2025-06-24 22:50:54,640 [INFO] Бот запущен
+2025-06-24 22:53:30,023 [INFO] [DEBUG] Received /reply from user_id=486355497, username=MadCatos
+2025-06-24 22:53:30,027 [INFO] [LOG] /reply called by user_id=486355497, username=MadCatos, user=(486355497, 'MadCatos', 3, 1, 2, '2030-12-31', 9999, 9999, 50, None), text=/reply 6 I love you so much :) Thks fo you help my dear rabbit :)
+2025-06-24 23:26:57,904 [INFO] Бот запущен
+2025-06-24 23:34:19,645 [INFO] Бот запущен
+2025-06-24 23:34:38,902 [ERROR] Ошибка создания платежа: Telegram server says - Bad Request: CURRENCY_INVALID
+2025-06-24 23:38:54,388 [INFO] Бот запущен
+2025-06-24 23:41:49,457 [INFO] Успешная оплата: user_id=486355497, tariff=basic_1, amount=49000
+2025-06-24 23:46:18,226 [INFO] Бот запущен
+2025-06-24 23:47:23,044 [INFO] Успешная оплата: user_id=486355497, tariff=basic_1, amount=9300
+2025-06-24 23:55:08,768 [INFO] Бот запущен
+2025-06-24 23:59:46,249 [INFO] ALL_ANSWER TRIGGERED: user_id=486355497, username=MadCatos, text=/all_answer
+2025-06-25 01:11:08,415 [INFO] Бот запущен
+2025-06-25 01:23:19,602 [INFO] Бот запущен
+2025-06-25 01:27:01,503 [INFO] Бот запущен
+2025-06-25 01:30:26,102 [INFO] Бот запущен
+2025-06-25 01:36:48,838 [INFO] Бот запущен
+2025-06-25 01:44:02,743 [INFO] Бот запущен

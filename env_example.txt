@@ -1,0 +1,20 @@
+# Telegram Bot Configuration
+TELEGRAM_API_TOKEN=your_telegram_bot_token_here
+TELEGRAM_PAYMENT_TOKEN=your_telegram_payment_token_here
+
+# YooKassa Configuration (для РФ)
+YOOKASSA_SHOP_ID=your_yookassa_shop_id_here
+YOOKASSA_SECRET_KEY=your_yookassa_secret_key_here
+
+# Google Drive API Configuration
+GOOGLE_CLIENT_ID=your_google_client_id_here
+GOOGLE_CLIENT_SECRET=your_google_client_secret_here
+
+# Database Configuration (опционально)
+DATABASE_PATH=users.db
+
+# Admin Configuration
+ADMIN_USER_ID=your_admin_user_id_here
+
+# Security Configuration
+MAX_FILE_SIZE_MB=50 

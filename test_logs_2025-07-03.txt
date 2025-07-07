@@ -1,0 +1,8 @@
+[2025-07-03 00:54:29] TEST_MODE_TOGGLE | User: 486355497 | status: ВКЛЮЧЕН | admin: MadCatos
+[2025-07-03 01:00:00] TEST_MODE_TOGGLE | User: 486355497 | status: ВКЛЮЧЕН | admin: MadCatos
+[2025-07-03 01:00:48] TEST_MODE_TOGGLE | User: 486355497 | status: ВКЛЮЧЕН | admin: MadCatos
+[2025-07-03 01:08:59] TEST_MODE_TOGGLE | User: 486355497 | status: ВКЛЮЧЕН | admin: MadCatos
+[2025-07-03 01:09:09] LINKS_RECEIVED | User: 486355497 | links: ['https://www.youtube.com/shorts/II3rssS7kNk'] | count: 1 | text: https://www.youtube.com/shorts/II3rssS7kNk
+[2025-07-03 01:09:09] LINK_PROCESSING_START | User: 486355497 | link: https://www.youtube.com/shorts/II3rssS7kNk | index: 1
+[2025-07-03 01:09:16] LINK_PROCESSED | User: 486355497 | link: https://www.youtube.com/shorts/II3rssS7kNk | index: 1 | duration: 31.24788 | processing_time: 7.245901 | success: True
+[2025-07-03 01:09:16] LINKS_PROCESSING_SUMMARY | User: 486355497 | count: 1 | total_duration: 31.24788 | all_success: True
