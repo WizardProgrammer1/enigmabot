@@ -640,7 +640,7 @@ class TelegramBot:
                 self.log_test_event("LINK_PROCESSING_START", user_id, link=link, index=i+1)
                 try:
                     await progress_msg.edit_text(f'Обрабатываю ссылку {i+1}/{len(links)}...')
-                    file_path, _ = self.file_handler.download_from_url(link)
+                    file_path, _ = await self.file_handler.download_from_url_async(link)
                     if not file_path:
                         await progress_msg.edit_text(f'Не удалось обработать ссылку {i+1}: видео не может быть скачано или обработано (3 попытки исчерпаны).')
                         self.log_test_event("LINK_PROCESSING_ERROR", user_id, link=link, index=i+1, error="file not downloaded after 3 attempts", processing_time=(datetime.datetime.now()-link_start).total_seconds(), success=False)
@@ -718,7 +718,7 @@ class TelegramBot:
                 last_orig_name = None
                 for i, link in enumerate(links[::-1]):
                     try:
-                        file_path, orig_name = self.file_handler.download_from_url(link)
+                        file_path, orig_name = await self.file_handler.download_from_url_async(link)
                         last_file_path = file_path
                         last_orig_name = orig_name
                         break
@@ -2377,7 +2377,7 @@ class TelegramBot:
                 self.log_test_event("LINK_PROCESSING_START", user_id, link=link, index=i+1)
                 try:
                     await progress_msg.edit_text(f'Обрабатываю ссылку {i+1}/{len(links)}...')
-                    file_path, _ = self.file_handler.download_from_url(link)
+                    file_path, _ = await self.file_handler.download_from_url_async(link)
                     if not file_path:
                         await progress_msg.edit_text(f'Не удалось обработать ссылку {i+1}: возможно, видео защищено или недоступно для скачивания.')
                         self.log_test_event("LINK_PROCESSING_ERROR", user_id, link=link, index=i+1, error="file not downloaded", processing_time=(datetime.datetime.now()-link_start).total_seconds(), success=False)
@@ -2455,7 +2455,7 @@ class TelegramBot:
                 last_orig_name = None
                 for i, link in enumerate(links[::-1]):
                     try:
-                        file_path, orig_name = self.file_handler.download_from_url(link)
+                        file_path, orig_name = await self.file_handler.download_from_url_async(link)
                         last_file_path = file_path
                         last_orig_name = orig_name
                         break

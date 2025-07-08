@@ -62,6 +62,15 @@ class FileHandler:
             print(f"[ERROR] Не удалось скачать файл с {url} ни одним способом!")
             return None, None
 
+    async def download_from_url_async(self, url: str) -> tuple:
+        """
+        Асинхронно скачивает файл по ссылке (YouTube, VK, прямые mp3/mp4 и др.) и возвращает (путь к файлу, имя/титул).
+        Выполняет синхронную download_from_url в отдельном потоке.
+        """
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: self.download_from_url(url))
+
     async def download(self, file_obj: TelegramFile, file_ext: str) -> str:
         """Скачивает файл из Telegram и возвращает путь к файлу."""
         if not self.bot:
