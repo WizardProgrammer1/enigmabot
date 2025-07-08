@@ -665,7 +665,7 @@ class TelegramBot:
                         options = Config.WHISPER_OPTIONS.copy()
                         if lang_code:
                             options['language'] = lang_code
-                        text = await self.transcriber.transcribe_long_file_with_progress(file_path, options, progress_callback)
+                        text = await self.transcriber.transcribe_long_file_with_progress_async(file_path, options, progress_callback)
                         all_texts.append(f'[Ссылка {i+1}]\n{text}\n')
                         os.remove(file_path)
                         link_end = datetime.datetime.now()
@@ -2402,7 +2402,7 @@ class TelegramBot:
                         options = Config.WHISPER_OPTIONS.copy()
                         if lang_code:
                             options['language'] = lang_code
-                        text = await self.transcriber.transcribe_long_file_with_progress(file_path, options, progress_callback)
+                        text = await self.transcriber.transcribe_long_file_with_progress_async(file_path, options, progress_callback)
                         all_texts.append(f'[Ссылка {i+1}]\n{text}\n')
                         os.remove(file_path)
                         link_end = datetime.datetime.now()
@@ -2579,7 +2579,7 @@ class TelegramBot:
             options['language'] = lang_code
         if duration > 300:
             # Длинный файл — транскрипция в txt с прогрессом
-            text = await self.transcriber.transcribe_long_file_with_progress(file_path, options, progress_callback)
+            text = await self.transcriber.transcribe_long_file_with_progress_async(file_path, options, progress_callback)
             import tempfile
             txt_path = os.path.join(tempfile.gettempdir(), f'{orig_name}_transcript.txt')
             with open(txt_path, 'w', encoding='utf-8') as f:

@@ -247,6 +247,15 @@ class Transcriber:
         logging.info(f"Транскрипция завершена. Длина текста: {len(full_text)} символов")
         return full_text
 
+    async def transcribe_long_file_with_progress_async(self, file_path: str, options: dict, progress_callback=None) -> str:
+        """
+        Асинхронно выполняет транскрибацию длинного файла в отдельном потоке, чтобы не блокировать event loop.
+        Прогресс-коллбек не будет вызываться асинхронно, но основной поток не блокируется.
+        """
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, lambda: self._transcribe_long_file(file_path, options))
+
     def format_txt(self, text: str) -> str:
         """Красиво форматирует текст для txt-файла: абзацы, переносы, убирает лишние пробелы."""
         import re
