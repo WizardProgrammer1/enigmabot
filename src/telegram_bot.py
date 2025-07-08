@@ -45,8 +45,6 @@ class TelegramBot:
         if not Config.API_TOKEN:
             raise ValueError("TELEGRAM_API_TOKEN не установлен в переменных окружения")
         
-        print(f"[INIT] Telegram API Token: {'Установлен' if Config.API_TOKEN else 'НЕ УСТАНОВЛЕН'}")
-        
         self.bot = Bot(token=Config.API_TOKEN)
         self.dp = Dispatcher(self.bot)
         self.transcriber = Transcriber()
@@ -69,17 +67,10 @@ class TelegramBot:
         
         # CryptoBot API ключ
         self.cryptobot_api_key = Config.CRYPTOBOT_API_KEY
-        print(f"[INIT] CryptoBot API Key: {'Установлен' if self.cryptobot_api_key else 'НЕ УСТАНОВЛЕН'}")
         
         # Lemon Squeezy API ключ и Product ID
         self.lemonsqueezy_api_key = Config.LEMONSQUEEZY_API_KEY
         self.lemonsqueezy_product_id = 570700  # Variant ID для динамических цен
-        
-        print(f"[INIT] Lemon Squeezy API Key: {'Установлен' if self.lemonsqueezy_api_key else 'НЕ УСТАНОВЛЕН'}")
-        print(f"[INIT] Lemon Squeezy Product ID: {self.lemonsqueezy_product_id}")
-        
-        if self.lemonsqueezy_api_key:
-            print(f"[INIT] Lemon Squeezy API Key (первые 10 символов): {self.lemonsqueezy_api_key[:10]}...")
         
         print("[INIT] Инициализация завершена")
 
@@ -650,6 +641,11 @@ class TelegramBot:
                 try:
                     await progress_msg.edit_text(f'Обрабатываю ссылку {i+1}/{len(links)}...')
                     file_path, _ = self.file_handler.download_from_url(link)
+                    if not file_path:
+                        await progress_msg.edit_text(f'Не удалось обработать ссылку {i+1}: видео не может быть скачано или обработано (3 попытки исчерпаны).')
+                        self.log_test_event("LINK_PROCESSING_ERROR", user_id, link=link, index=i+1, error="file not downloaded after 3 attempts", processing_time=(datetime.datetime.now()-link_start).total_seconds(), success=False)
+                        all_texts.append(f'[Ссылка {i+1}] Не удалось обработать: видео не может быть скачано или обработано (3 попытки исчерпаны).\n')
+                        continue
                     if file_path:
                         duration = self.transcriber.get_duration(file_path)
                         total_duration += duration
@@ -708,7 +704,7 @@ class TelegramBot:
                 combined_text = info_text + combined_text
                 combined_text += "\n\nСоздано нами "
                 import uuid
-                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
                 file_id = str(uuid.uuid4())
                 lang_code = user[9] if user and len(user) > 9 and user[9] else 'ru'
                 markup = InlineKeyboardMarkup(
@@ -731,7 +727,15 @@ class TelegramBot:
                 if last_file_path:
                     self.user_files[(user_id, file_id)] = (last_file_path, last_orig_name)
                 await progress_msg.edit_text('Обработка завершена!')
-                await safe_send_message(self.bot, message.chat.id, combined_text, reply_markup=markup)
+                # --- ВОССТАНОВЛЕНИЕ: если длительность больше 2 минут, отправлять как txt файл ---
+                if total_duration > 120:  # 2 минуты
+                    txt_path = f"/tmp/transcript_{file_id}.txt"
+                    with open(txt_path, "w", encoding="utf-8") as f:
+                        f.write(combined_text)
+                    await self.bot.send_document(message.chat.id, InputFile(txt_path), caption="Результат транскрибации длинного видео", reply_markup=markup)
+                    os.remove(txt_path)
+                else:
+                    await safe_send_message(self.bot, message.chat.id, combined_text, reply_markup=markup)
             else:
                 await progress_msg.edit_text('Не удалось обработать ссылки.', reply_markup=self.get_main_keyboard())
 
@@ -2374,6 +2378,11 @@ class TelegramBot:
                 try:
                     await progress_msg.edit_text(f'Обрабатываю ссылку {i+1}/{len(links)}...')
                     file_path, _ = self.file_handler.download_from_url(link)
+                    if not file_path:
+                        await progress_msg.edit_text(f'Не удалось обработать ссылку {i+1}: возможно, видео защищено или недоступно для скачивания.')
+                        self.log_test_event("LINK_PROCESSING_ERROR", user_id, link=link, index=i+1, error="file not downloaded", processing_time=(datetime.datetime.now()-link_start).total_seconds(), success=False)
+                        all_texts.append(f'[Ссылка {i+1}] Не удалось обработать: возможно, видео защищено или недоступно для скачивания.\n')
+                        continue
                     if file_path:
                         duration = self.transcriber.get_duration(file_path)
                         total_duration += duration
@@ -2432,7 +2441,7 @@ class TelegramBot:
                 combined_text = info_text + combined_text
                 combined_text += "\n\nСоздано нами "
                 import uuid
-                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
                 file_id = str(uuid.uuid4())
                 lang_code = user[9] if user and len(user) > 9 and user[9] else 'ru'
                 markup = InlineKeyboardMarkup(
@@ -2455,7 +2464,15 @@ class TelegramBot:
                 if last_file_path:
                     self.user_files[(user_id, file_id)] = (last_file_path, last_orig_name)
                 await progress_msg.edit_text('Обработка завершена!')
-                await safe_send_message(self.bot, message.chat.id, combined_text, reply_markup=markup)
+                # --- ВОССТАНОВЛЕНИЕ: если длительность больше 2 минут, отправлять как txt файл ---
+                if total_duration > 120:  # 2 минуты
+                    txt_path = f"/tmp/transcript_{file_id}.txt"
+                    with open(txt_path, "w", encoding="utf-8") as f:
+                        f.write(combined_text)
+                    await self.bot.send_document(message.chat.id, InputFile(txt_path), caption="Результат транскрибации длинного видео", reply_markup=markup)
+                    os.remove(txt_path)
+                else:
+                    await safe_send_message(self.bot, message.chat.id, combined_text, reply_markup=markup)
             else:
                 await progress_msg.edit_text('Не удалось обработать ссылки.', reply_markup=self.get_main_keyboard())
 

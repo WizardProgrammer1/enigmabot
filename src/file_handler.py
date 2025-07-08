@@ -15,8 +15,9 @@ class FileHandler:
         """
         ydl_opts = {
             'outtmpl': '/tmp/%(title)s.%(ext)s',
-            'format': 'bestaudio/best',
+            'format': 'bestvideo+bestaudio/best',
             'quiet': True,
+            'ignoreerrors': True,
         }
         print(f"[LOG] outtmpl: {ydl_opts['outtmpl']}")
         if any(url.lower().endswith(ext) for ext in ['.mp3', '.mp4', '.wav', '.m4a', '.ogg']):
@@ -32,15 +33,34 @@ class FileHandler:
             print(f"[LOG] Файл скачан: {path}, title: {title}")
             return path, title
         else:
-            # YouTube, VK и др. через yt-dlp
-            with YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                file_path = ydl.prepare_filename(info)
-                print(f"[LOG] YoutubeDL file_path: {file_path}")
-                if not os.path.exists(file_path):
-                    print(f"[ERROR] Файл не создан: {file_path}")
-                title = info.get('title') or os.path.splitext(os.path.basename(file_path))[0]
-                return file_path, title
+            # YouTube, VK и др. через yt-dlp с fallback-стратегиями
+            from yt_dlp.utils import DownloadError
+            attempts = [
+                ('bestvideo+bestaudio/best', 'основной способ'),
+                ('bestaudio', 'только аудио'),
+                ('bestvideo', 'только видео'),
+            ]
+            # Пробуем каждый формат только по одному разу
+            for fmt, descr in attempts:
+                ydl_opts['format'] = fmt
+                print(f"[LOG] yt-dlp попытка: {descr} (format={fmt})")
+                try:
+                    with YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=True)
+                        file_path = ydl.prepare_filename(info)
+                        print(f"[LOG] YoutubeDL file_path: {file_path}")
+                        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                            title = info.get('title') or os.path.splitext(os.path.basename(file_path))[0]
+                            print(f"[LOG] Файл успешно скачан: {file_path}, title: {title}")
+                            return file_path, title
+                        else:
+                            print(f"[ERROR] Файл не создан или пустой: {file_path}")
+                except DownloadError as e:
+                    print(f"[ERROR] yt-dlp DownloadError ({descr}): {e}")
+                except Exception as e:
+                    print(f"[ERROR] yt-dlp Exception ({descr}): {e}")
+            print(f"[ERROR] Не удалось скачать файл с {url} ни одним способом!")
+            return None, None
 
     async def download(self, file_obj: TelegramFile, file_ext: str) -> str:
         """Скачивает файл из Telegram и возвращает путь к файлу."""
