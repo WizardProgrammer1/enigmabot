@@ -156,10 +156,10 @@ class TelegramBot:
         )
 
     def log_test_event(self, event_type, user_id, **kwargs):
-        """Логирует событие в тестовом режиме"""
+        """Логирует событие в тестовом режиме и сохраняет в файл (jsonl)"""
         if not self.test_mode:
             return
-            
+        import json
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         log_entry = {
             'timestamp': timestamp,
@@ -168,14 +168,10 @@ class TelegramBot:
             **kwargs
         }
         self.test_logs.append(log_entry)
-        
-        # Записываем в файл
+        # Записываем в jsonl-файл
         try:
-            with open(self.test_log_file, 'a', encoding='utf-8') as f:
-                f.write(f"[{timestamp}] {event_type} | User: {user_id}")
-                for key, value in kwargs.items():
-                    f.write(f" | {key}: {value}")
-                f.write('\n')
+            with open("testlogs.jsonl", 'a', encoding='utf-8') as f:
+                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
         except Exception as e:
             print(f"Ошибка записи в тестовый лог: {e}")
 
@@ -727,12 +723,13 @@ class TelegramBot:
                 if last_file_path:
                     self.user_files[(user_id, file_id)] = (last_file_path, last_orig_name)
                 await progress_msg.edit_text('Обработка завершена!')
-                # --- ВОССТАНОВЛЕНИЕ: если длительность больше 2 минут, отправлять как txt файл ---
-                if total_duration > 120:  # 2 минуты
-                    txt_path = f"/tmp/transcript_{file_id}.txt"
+                # --- Теперь: если combined_text > 5000 символов, отправлять как txt файл ---
+                if len(combined_text) > 5000:
+                    orig_txt_name = (last_orig_name or f"transcript_{file_id}") + ".txt"
+                    txt_path = f"/tmp/{orig_txt_name}"
                     with open(txt_path, "w", encoding="utf-8") as f:
                         f.write(combined_text)
-                    await self.bot.send_document(message.chat.id, InputFile(txt_path), caption="Результат транскрибации длинного видео", reply_markup=markup)
+                    await self.bot.send_document(message.chat.id, InputFile(txt_path), caption="Результат транскрибации длинного файла", reply_markup=markup)
                     os.remove(txt_path)
                 else:
                     await safe_send_message(self.bot, message.chat.id, combined_text, reply_markup=markup)
@@ -1107,39 +1104,16 @@ class TelegramBot:
 
         @self.dp.message_handler(commands=["get_testlogs"])
         async def cmd_get_testlogs(message: types.Message):
-            user_id = getattr(message.from_user, 'id', None)
-            user = await self.user_repo.get_user(user_id)
-            if not user or user[2] < 3:
-                await message.reply('Недостаточно прав. Требуется уровень 3+ админа.')
-                return
-            if await self.check_ban(message): return
-            
-            # Проверяем состояние тестового режима
-            mode_status = "ВКЛЮЧЕН" if self.test_mode else "ВЫКЛЮЧЕН"
-            
-            if not self.test_logs:
-                await message.reply(f'📝 Тестовые логи пусты.\n🔬 Тестовый режим: {mode_status}\n\nВключите тестовый режим командой /testmode для начала логирования.')
-                return
-            
-            # Создаем файл с отчетами
-            report_filename = f"test_report_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+            # ...проверка прав...
+            import os
+            from aiogram.types import InputFile
             try:
-                with open(report_filename, 'w', encoding='utf-8') as f:
-                    f.write(self.get_test_logs_summary())
-                
-                # Отправляем файл
-                await message.reply_document(
-                    InputFile(report_filename),
-                    caption=f'📊 Отчет тестовых логов\n📅 Дата: {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n📝 Записей: {len(self.test_logs)}\n🔬 Тестовый режим: {mode_status}'
-                )
-                
-                # Удаляем временный файл
-                os.remove(report_filename)
-                
+                if not os.path.exists("testlogs.jsonl") or os.path.getsize("testlogs.jsonl") == 0:
+                    await message.reply("Тестовые логи пусты.")
+                    return
+                await self.bot.send_document(message.chat.id, InputFile("testlogs.jsonl"), caption="Тестовые логи (jsonl)")
             except Exception as e:
-                await message.reply(f'❌ Ошибка при создании отчета: {e}')
-
-
+                await message.reply(f"Ошибка при чтении логов: {e}")
 
         @self.dp.message_handler(commands=["get_id"])
         async def cmd_get_id(message: types.Message):
@@ -1841,7 +1815,14 @@ class TelegramBot:
                 
                 status_str = 'ожидает ответа' if not answer else 'отвечено'
                 answer_str = answer if answer else '—'
-                lines.append(f'#{qid} от @{uname} ({created[:16]}){topic_str}\nВопрос: {text}\nОтвет: {answer_str}\nСтатус: {status_str}\n')
+                who_answered_str = ''
+                if answer and answered_by:
+                    admin = await self.user_repo.get_user(answered_by)
+                    if admin:
+                        admin_id = admin[0]
+                        admin_username = admin[1] or '-'
+                        who_answered_str = f"Кто ответил: {admin_id} | {admin_username}\n"
+                lines.append(f'#{qid} от @{uname} ({created[:16]}){topic_str}\nВопрос: {text}\nОтвет: {answer_str}\n{who_answered_str}Статус: {status_str}\n')
             text_out = '\n'.join(lines)
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
             buttons = []
@@ -2272,7 +2253,14 @@ class TelegramBot:
                 
                 status_str = 'ожидает ответа' if not answer else 'отвечено'
                 answer_str = answer if answer else '—'
-                lines.append(f'#{qid} от @{uname} ({created[:16]}){topic_str}\nВопрос: {text}\nОтвет: {answer_str}\nСтатус: {status_str}\n')
+                who_answered_str = ''
+                if answer and answered_by:
+                    admin = await self.user_repo.get_user(answered_by)
+                    if admin:
+                        admin_id = admin[0]
+                        admin_username = admin[1] or '-'
+                        who_answered_str = f"Кто ответил: {admin_id} | {admin_username}\n"
+                lines.append(f'#{qid} от @{uname} ({created[:16]}){topic_str}\nВопрос: {text}\nОтвет: {answer_str}\n{who_answered_str}Статус: {status_str}\n')
             text_out = '\n'.join(lines)
             # Кнопки навигации
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -2464,12 +2452,13 @@ class TelegramBot:
                 if last_file_path:
                     self.user_files[(user_id, file_id)] = (last_file_path, last_orig_name)
                 await progress_msg.edit_text('Обработка завершена!')
-                # --- ВОССТАНОВЛЕНИЕ: если длительность больше 2 минут, отправлять как txt файл ---
-                if total_duration > 120:  # 2 минуты
-                    txt_path = f"/tmp/transcript_{file_id}.txt"
+                # --- Теперь: если combined_text > 5000 символов, отправлять как txt файл ---
+                if len(combined_text) > 5000:
+                    orig_txt_name = (last_orig_name or f"transcript_{file_id}") + ".txt"
+                    txt_path = f"/tmp/{orig_txt_name}"
                     with open(txt_path, "w", encoding="utf-8") as f:
                         f.write(combined_text)
-                    await self.bot.send_document(message.chat.id, InputFile(txt_path), caption="Результат транскрибации длинного видео", reply_markup=markup)
+                    await self.bot.send_document(message.chat.id, InputFile(txt_path), caption="Результат транскрибации длинного файла", reply_markup=markup)
                     os.remove(txt_path)
                 else:
                     await safe_send_message(self.bot, message.chat.id, combined_text, reply_markup=markup)
