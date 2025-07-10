@@ -13,3 +13,10 @@ google-auth-httplib2
 google-auth-oauthlib
 python-docx
 python-dotenv
+
+# Дополнительные зависимости для провайдеров транскрипции
+google-cloud-speech
+azure-cognitiveservices-speech
+requests
+scipy
+noisereduce

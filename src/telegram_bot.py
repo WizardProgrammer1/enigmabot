@@ -57,6 +57,9 @@ class TelegramBot:
         self.file_handler = FileHandler(self.bot)
         self.user_tariff = {}  # user_id -> {'tariff_id': ..., 'payment_id': ...}
         
+        # Для хранения файлов пользователя (user_id, file_id) -> (file_path, orig_name)
+        self.user_files = {}
+        
         # Тестовый режим
         self.test_mode = False
         self.test_logs = []
@@ -71,6 +74,9 @@ class TelegramBot:
         # Lemon Squeezy API ключ и Product ID
         self.lemonsqueezy_api_key = Config.LEMONSQUEEZY_API_KEY
         self.lemonsqueezy_product_id = 570700  # Variant ID для динамических цен
+        
+        # В __init__ TelegramBot добавить:
+        self.support_cooldown = {}
         
         print("[INIT] Инициализация завершена")
 
@@ -412,7 +418,17 @@ class TelegramBot:
 
         @self.dp.message_handler(lambda m: m.text == "🛟 Служба поддержки")
         async def support_start(message: types.Message):
+            import datetime
             if await self.check_ban(message): return
+            user_id = getattr(message.from_user, 'id', None)
+            now = datetime.datetime.now()
+            cd = self.support_cooldown.get(user_id)
+            if cd and (now - cd).total_seconds() < 300:
+                left = 300 - int((now - cd).total_seconds())
+                mins = left // 60
+                secs = left % 60
+                await message.reply(f'Вы сможете повторно обратиться в поддержку через {mins} мин {secs} сек')
+                return
             await message.reply(
                 'Выберите категорию вашего вопроса:',
                 reply_markup=self.get_support_keyboard()
@@ -771,7 +787,7 @@ class TelegramBot:
             if len(args) < 4:
                 await message.reply('Использование: /ban <id|username> <срок: 1h-30d> <причина>')
                 return
-            target, period, reason = args[1], args[2], args[3]
+            target, period, reason = args[1], args[2], ' '.join(args[3:])
             # Поиск пользователя
             target_user = None
             if target.isdigit():
@@ -1139,16 +1155,26 @@ class TelegramBot:
 
         @self.dp.message_handler(lambda m: m.text in ["❌ Не проходит оплата", "💡 Идеи по улучшению работы", "🤝 Предложение по сотрудничеству", "📝 Другое"])
         async def support_category(message: types.Message):
+            import datetime
             if await self.check_ban(message): return
+            user_id = getattr(message.from_user, 'id', None)
+            now = datetime.datetime.now()
+            cd = self.support_cooldown.get(user_id)
+            if cd and (now - cd).total_seconds() < 300:
+                left = 300 - int((now - cd).total_seconds())
+                mins = left // 60
+                secs = left % 60
+                await message.reply(f'Вы сможете повторно обратиться в поддержку через {mins} мин {secs} сек')
+                return
             await message.reply("✅ Принято!", reply=False)
             await support_instruction(message)
-            user_id = getattr(message.from_user, 'id', None)
             if user_id is not None:
                 self.support_waiting.add(user_id)
-                # Сохраняем тему обращения
                 if not hasattr(self, 'support_topics'):
                     self.support_topics = {}
-            self.support_topics[user_id] = message.text
+                self.support_topics[user_id] = message.text
+            # Обновляем кулдаун после выбора категории
+            self.support_cooldown[user_id] = now
 
         @self.dp.message_handler(lambda m: m.text in [
             "🟢 Базовый (1 месяц)", "🟢 Базовый (3 месяца)", "🟢 Базовый (6 месяцев)", "🟢 Базовый (12 месяцев)",
@@ -2001,7 +2027,13 @@ class TelegramBot:
             for u in banned_users:
                 uid, uname, banned_until, reason, admin_id, admin_username, action_time = u
                 admin_str = f'@{admin_username}' if admin_username else f'{admin_id}' if admin_id else 'неизвестно'
-                lines.append(f'{uid} | {uname} | {banned_until} | {reason} | {admin_str}')
+                until_str = "-"
+                try:
+                    until_dt = datetime.datetime.fromisoformat(banned_until)
+                    until_str = until_dt.strftime('%d.%m.%Y %H:%M')
+                except Exception:
+                    until_str = str(banned_until)
+                lines.append(f'{uid} | {uname} | {until_str} | {reason} | {admin_str}')
             await message.reply('\n'.join(lines))
 
         @self.dp.callback_query_handler(lambda c: re.match(r'^add_timestamps:(.+?):(.+)$', c.data))
@@ -2088,20 +2120,74 @@ class TelegramBot:
         # Обработчики для апелляций
         @self.dp.callback_query_handler(lambda c: c.data == "submit_appeal")
         async def submit_appeal_callback(callback: types.CallbackQuery):
+            import datetime
             user_id = getattr(callback.from_user, 'id', None)
             if not user_id:
                 await callback.answer('Ошибка пользователя.', show_alert=True)
                 return
-            
-            # Добавляем пользователя в режим подачи апелляции
+            user = await self.user_repo.get_user(user_id)
+            now = datetime.datetime.now()
+            banned_until = None
+            if user and user[6]:
+                try:
+                    banned_until = datetime.datetime.fromisoformat(user[6])
+                except Exception:
+                    banned_until = None
+            ban_start_str = None
+            if banned_until:
+                ban_duration = banned_until - now if banned_until > now else datetime.timedelta(days=1)
+                ban_start = banned_until - ban_duration
+                ban_start_str = ban_start.isoformat()
+            # --- Новый КД на апелляцию ---
+            cooldown = None
+            if banned_until:
+                total_days = (banned_until - ban_start).days
+                if total_days <= 1:
+                    cooldown = datetime.timedelta(days=1)
+                elif 1 < total_days <= 5:
+                    cooldown = datetime.timedelta(days=3)
+                elif 5 < total_days <= 10:
+                    cooldown = datetime.timedelta(days=5)
+                elif 10 < total_days <= 20:
+                    cooldown = datetime.timedelta(days=10)
+                elif total_days >= 30:
+                    cooldown = datetime.timedelta(days=15)
+            # Получаем последнюю апелляцию по этому бану
+            last_appeal = None
+            if ban_start_str:
+                last_appeal = await self.user_repo.get_last_appeal_for_ban(user_id, ban_start_str)
+            # Если есть pending — не разрешать новую апелляцию
+            if last_appeal and last_appeal[6] == 'pending':
+                await callback.answer('Ваша апелляция уже на рассмотрении. Это может занимать до 48 часов.', show_alert=True)
+                return
+            # Если reviewed — проверяем КД
+            if last_appeal and last_appeal[6] == 'reviewed' and cooldown:
+                last_time = datetime.datetime.fromisoformat(last_appeal[5])
+                next_time = last_time + cooldown
+                if now < next_time:
+                    left = next_time - now
+                    hours, remainder = divmod(left.seconds, 3600)
+                    minutes = remainder // 60
+                    days = left.days
+                    parts = []
+                    if days > 0:
+                        parts.append(f"{days} дн.")
+                    if hours > 0:
+                        parts.append(f"{hours} ч.")
+                    if minutes > 0:
+                        parts.append(f"{minutes} мин.")
+                    time_str = ' '.join(parts) if parts else 'меньше минуты'
+                    await callback.answer(f'Вы сможете подать апелляцию через: {time_str}', show_alert=True)
+                    return
+            # Если дошли сюда, апелляцию можно подать
             if not hasattr(self, 'appeal_waiting'):
                 self.appeal_waiting = set()
             self.appeal_waiting.add(user_id)
-            
             await callback.message.edit_text(
                 '📝 Подача апелляции\n\n'
-                'Опишите подробно, почему вы считаете, что блокировка была применена по ошибке. '
+                'Вы можете подать апелляцию повторно после истечения КД.\n\n'
                 'Будьте вежливы и конструктивны.\n\n'
+                'Рассмотрение занимает до 48 часов.\n\n'
                 'Отправьте ваше обращение одним сообщением:'
             )
             await callback.answer()
@@ -2174,7 +2260,7 @@ class TelegramBot:
             for appeal in appeals:
                 aid, uid, uname, ban_reason, appeal_text, created, status, admin_response, reviewed_by, reviewed_at = appeal
                 status_str = '⏳ На рассмотрении' if status == 'pending' else '✅ Рассмотрена'
-                lines.append(f'#{aid} от @{uname} ({created[:16]})\nСтатус: {status_str}\nПричина бана: {ban_reason[:50]}...')
+                lines.append(f'#{aid} от @{uname} ({created[:16]})\nСтатус: {status_str}\nПричина бана: {ban_reason}')
             
             await message.reply('\n\n'.join(lines))
 
@@ -2663,27 +2749,48 @@ class TelegramBot:
     async def check_ban(self, message):
         user_id = getattr(message.from_user, 'id', None)
         if user_id is not None and await self.user_repo.is_banned(user_id):
-            # Получаем информацию о бане
             user = await self.user_repo.get_user(user_id)
             ban_reason = user[10] if user and user[10] else "Не указана"
-            
-            # Проверяем, есть ли уже апелляция
-            existing_appeal = await self.user_repo.get_user_appeal(user_id)
-            
-            if existing_appeal and existing_appeal[6] == 'pending':
-                # Апелляция уже подана и на рассмотрении
-                await message.reply(
-                    'Вы заблокированы до окончания срока блокировки. Обратитесь в поддержку, если это ошибка.\n\n'
-                    'Ваша апелляция на рассмотрении, ждите. Это может занимать до 48 часов.',
-                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                        [InlineKeyboardButton(text="📝 Подать апелляцию", callback_data="appeal_already_submitted")]
-                    ])
-                )
+            banned_until = None
+            if user and user[6]:
+                try:
+                    banned_until = datetime.datetime.fromisoformat(user[6])
+                except Exception:
+                    banned_until = None
+            until_str = banned_until.strftime('%d.%m.%Y %H:%M') if banned_until else "-"
+            # Проверяем, есть ли уже апелляция по текущему бану
+            now = datetime.datetime.now()
+            ban_start_str = None
+            if banned_until:
+                ban_duration = banned_until - now if banned_until > now else datetime.timedelta(days=1)
+                ban_start = banned_until - ban_duration
+                ban_start_str = ban_start.isoformat()
+            appeals = []
+            if ban_start_str:
+                appeals = await self.user_repo.get_appeals_for_current_ban(user_id, ban_start_str)
+            if appeals:
+                status = appeals[0][6] if len(appeals[0]) > 6 else None
+                if status == 'pending':
+                    await message.reply(
+                        f'\u274C Вы заблокированы до {until_str}.\nПричина: {ban_reason}\n\nВаша апелляция на рассмотрении, ждите. Это может занимать до 48 часов.',
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="📝 Подать апелляцию", callback_data="appeal_already_submitted")]
+                        ])
+                    )
+                elif status == 'reviewed' and banned_until and banned_until > now:
+                    await message.reply(
+                        f'\u274C Вы заблокированы до {until_str}.\nПричина: {ban_reason}\n\nВы уже использовали свой шанс на апелляцию, блокировка будет снята до {until_str}.'
+                    )
+                else:
+                    await message.reply(
+                        f'\u274C Вы заблокированы до {until_str}.\nПричина: {ban_reason}\n\nЕсли вы считаете, что блокировка была применена по ошибке, вы можете подать апелляцию.',
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                            [InlineKeyboardButton(text="📝 Подать апелляцию", callback_data="submit_appeal")]
+                        ])
+                    )
             else:
-                # Можно подать апелляцию
                 await message.reply(
-                    f'Вы заблокированы до окончания срока блокировки.\nПричина: {ban_reason}\n\n'
-                    'Если вы считаете, что блокировка была применена по ошибке, вы можете подать апелляцию.',
+                    f'\u274C Вы заблокированы до {until_str}.\nПричина: {ban_reason}\n\nЕсли вы считаете, что блокировка была применена по ошибке, вы можете подать апелляцию.',
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="📝 Подать апелляцию", callback_data="submit_appeal")]
                     ])

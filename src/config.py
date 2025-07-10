@@ -38,8 +38,28 @@ class Config:
     MAX_FILE_SIZE_MB = int(os.getenv('MAX_FILE_SIZE_MB', '50'))
     SUPPORTED_AUDIO = ['mp3', 'wav', 'ogg', 'm4a']
     SUPPORTED_VIDEO = ['mp4', 'mov', 'avi']
-    WHISPER_MODEL = 'medium'  # Для баланса между скоростью и точностью 
-    WHISPER_OPTIONS = {}
+    
+    # Whisper Configuration - обновлено для максимального качества
+    WHISPER_MODEL = os.getenv('WHISPER_MODEL', 'large-v3')  # large-v3 для максимального качества
+    WHISPER_OPTIONS = {
+        'fp16': False,  # Отключаем для лучшей точности
+        'temperature': 0.0,  # Нулевая температура для детерминированных результатов
+        'compression_ratio_threshold': 2.4,
+        'logprob_threshold': -1.0,
+        'no_speech_threshold': 0.6,
+        'condition_on_previous_text': True,
+        'initial_prompt': None
+    }
+    
+    # API Configuration для платных сервисов
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+    GOOGLE_CLOUD_CREDENTIALS = os.getenv('GOOGLE_CLOUD_CREDENTIALS')
+    AZURE_SPEECH_KEY = os.getenv('AZURE_SPEECH_KEY')
+    AZURE_SPEECH_REGION = os.getenv('AZURE_SPEECH_REGION')
+    ASSEMBLYAI_API_KEY = os.getenv('ASSEMBLYAI_API_KEY')
+    
+    # Выбор провайдера транскрипции
+    TRANSCRIPTION_PROVIDER = os.getenv('TRANSCRIPTION_PROVIDER', 'whisper_local')  # whisper_local, openai, google, azure, assemblyai
     
     # Поддерживаемые платформы для транскрипции
     SUPPORTED_PLATFORMS = [

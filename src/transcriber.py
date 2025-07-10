@@ -15,21 +15,25 @@ from src.file_handler import FileHandler
 import noisereduce as nr
 from scipy.io import wavfile
 import tempfile
+from src.transcription_providers import TranscriptionFactory
 
 print("=== THIS IS THE ACTIVE transcriber.py ===")
 
 class Transcriber:
-    def __init__(self, model_name: str = ""):
-        # Автоматически определяем доступность CUDA
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        logging.info(f"Используется устройство: {device}")
+    def __init__(self, provider_name: str = None):
+        # Создаем провайдер транскрипции
+        self.provider_name = provider_name or Config.TRANSCRIPTION_PROVIDER
+        logging.info(f"Инициализация провайдера транскрипции: {self.provider_name}")
         
-        # Загружаем модель с оптимизациями
-        model_name = model_name or Config.WHISPER_MODEL
-        logging.info(f"Загружается модель: {model_name}")
-        
-        self.model = whisper.load_model(model_name, device=device)
-        logging.info(f"Модель {model_name} загружена успешно на {device}")
+        try:
+            self.provider = TranscriptionFactory.create_provider(self.provider_name)
+            logging.info(f"Провайдер {self.provider_name} успешно инициализирован")
+        except Exception as e:
+            logging.error(f"Ошибка инициализации провайдера {self.provider_name}: {e}")
+            # Fallback на локальный Whisper
+            logging.info("Переключение на локальный Whisper")
+            self.provider = TranscriptionFactory.create_provider('whisper_local')
+            self.provider_name = 'whisper_local'
 
         self.file_handler = FileHandler()
 
@@ -50,15 +54,15 @@ class Transcriber:
             print("=== INSIDE TRANSCRIBE TRY ===")
             # --- DENOISE AUDIO ---
             denoised_path = self._denoise_audio(file_path)
-            options = Config.WHISPER_OPTIONS.copy()
-            if language and language != 'other':
-                options['language'] = language
-            options['task'] = 'transcribe'
-            # Для длинных файлов используем чанки
-            if self.get_duration(file_path) > Config.CHUNK_LENGTH * 2:
-                result = self._transcribe_long_file(denoised_path, options)
+            
+            # Используем выбранный провайдер
+            if self.provider_name == 'whisper_local' and self.get_duration(file_path) > Config.CHUNK_LENGTH * 2:
+                # Для локального Whisper используем чанки для длинных файлов
+                result = self._transcribe_long_file_whisper(denoised_path, language)
             else:
-                result = self._transcribe_short_file(denoised_path, options)
+                # Для остальных провайдеров используем прямой вызов
+                result = self.provider.transcribe(denoised_path, language)
+            
             # Удаляем временный файл
             if os.path.exists(denoised_path):
                 os.remove(denoised_path)
@@ -67,14 +71,21 @@ class Transcriber:
             print(f"[ERROR] В transcribe: {e}")
             raise
 
-    def _transcribe_short_file(self, file_path: str, options: dict) -> str:
-        print(f"=== _transcribe_short_file CALLED === {file_path}")
+    def _transcribe_short_file_whisper(self, file_path: str, language: str = 'ru') -> str:
+        print(f"=== _transcribe_short_file_whisper CALLED === {file_path}")
+        options = Config.WHISPER_OPTIONS.copy()
+        if language and language != 'other':
+            options['language'] = language
+        options['task'] = 'transcribe'
         print(f"[WHISPER] SHORT: file={file_path}, options={options}")
-        result = self.model.transcribe(file_path, **options)
-        return str(result['text'])
+        if hasattr(self.provider, "model"):
+            result = self.provider.model.transcribe(file_path, **options)
+            return str(result['text'])
+        else:
+            return str(self.provider.transcribe(file_path, language))
 
-    def _transcribe_long_file(self, file_path: str, options: dict) -> str:
-        print(f"=== _transcribe_long_file CALLED === {file_path}")
+    def _transcribe_long_file_whisper(self, file_path: str, language: str = 'ru') -> str:
+        print(f"=== _transcribe_long_file_whisper CALLED === {file_path}")
         import ffmpeg
         import tempfile
         print("Используем транскрипцию по частям для длинного файла")
@@ -98,8 +109,11 @@ class Transcriber:
                     .overwrite_output()
                     .run()
                 )
-                print(f"[WHISPER] LONG: chunk={tmp_chunk_path}, options={options}")
-                text = str(self.model.transcribe(tmp_chunk_path, **options)['text']).strip()
+                print(f"[WHISPER] LONG: chunk={tmp_chunk_path}")
+                if hasattr(self.provider, "model"):
+                    text = str(self.provider.model.transcribe(tmp_chunk_path, **Config.WHISPER_OPTIONS)['text']).strip()
+                else:
+                    text = str(self.provider.transcribe(tmp_chunk_path, language)).strip()
                 results.append(text)
             except Exception as e:
                 print(f"Ошибка при обработке чанка {i+1}: {e}")
@@ -121,8 +135,18 @@ class Transcriber:
             options['language'] = language
         options['task'] = 'transcribe'
         print(f"[WHISPER] TIMESTAMPS: file={file_path}, options={options}")
-        result = self.model.transcribe(file_path, **options)
-        segments = result.get("segments", [])
+        # Универсальная поддержка таймкодов
+        if hasattr(self.provider, "transcribe_with_timestamps"):
+            result = self.provider.transcribe_with_timestamps(file_path, language)
+            segments = result.get("segments", [])
+            if not segments:
+                return result.get("text", "")
+        elif hasattr(self.provider, "model"):
+            result = self.provider.model.transcribe(file_path, **options)
+            segments = result.get("segments", [])
+        else:
+            text = self.provider.transcribe(file_path, language)
+            return text
         lines = []
         for seg in segments:
             if isinstance(seg, dict):
@@ -131,7 +155,6 @@ class Transcriber:
                 text_val = seg.get("text", "")
                 lines.append(f"[{start_str}] {text_val.strip()}")
             else:
-                # если сегмент не dict, просто добавляем как есть
                 lines.append(str(seg))
         return "\n".join(lines)
 
@@ -142,9 +165,36 @@ class Transcriber:
             options['language'] = language
         options['task'] = 'transcribe'
         print(f"[WHISPER] DOCX: file={file_path}, options={options}")
-        result = self.model.transcribe(file_path, **options)
-        segments = result.get("segments", [])
+        from docx import Document
         doc = Document()
+        # Универсальная поддержка таймкодов
+        if hasattr(self.provider, "transcribe_with_timestamps"):
+            result = self.provider.transcribe_with_timestamps(file_path, language)
+            segments = result.get("segments", [])
+            if not segments:
+                doc.add_heading('Транскрипция', 0)
+                doc.add_paragraph(result.get("text", ""))
+                if not out_path:
+                    import tempfile
+                    fd, out_path_tmp = tempfile.mkstemp(suffix='.docx')
+                    os.close(fd)
+                    out_path = out_path_tmp
+                doc.save(out_path)
+                return out_path
+        elif hasattr(self.provider, "model"):
+            result = self.provider.model.transcribe(file_path, **options)
+            segments = result.get("segments", [])
+        else:
+            text = self.provider.transcribe(file_path, language)
+            doc.add_heading('Транскрипция', 0)
+            doc.add_paragraph(text)
+            if not out_path:
+                import tempfile
+                fd, out_path_tmp = tempfile.mkstemp(suffix='.docx')
+                os.close(fd)
+                out_path = out_path_tmp
+            doc.save(out_path)
+            return out_path
         doc.add_heading('Транскрипция с таймкодами', 0)
         for seg in segments:
             if isinstance(seg, dict):
@@ -231,7 +281,10 @@ class Transcriber:
                     .overwrite_output()
                     .run()
                 )
-                text = str(self.model.transcribe(tmp_chunk_path, **options)['text']).strip()
+                if hasattr(self.provider, "model"):
+                    text = str(self.provider.model.transcribe(tmp_chunk_path, **options)['text']).strip()
+                else:
+                    text = str(self.provider.transcribe(tmp_chunk_path, options.get('language', 'ru'))).strip()
                 results.append(text)
             except Exception as e:
                 logging.error(f"Ошибка при обработке чанка {i+1}: {e}")
@@ -254,7 +307,8 @@ class Transcriber:
         """
         import asyncio
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, lambda: self._transcribe_long_file(file_path, options))
+        # Исправлено: вызываем актуальный метод и передаем язык
+        return await loop.run_in_executor(None, lambda: self._transcribe_long_file_whisper(file_path, options.get('language', 'ru')))
 
     def format_txt(self, text: str) -> str:
         """Красиво форматирует текст для txt-файла: абзацы, переносы, убирает лишние пробелы."""

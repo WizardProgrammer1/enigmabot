@@ -596,3 +596,13 @@ class UserRepository:
                 UPDATE orders SET status = ?, paid_at = ? WHERE id = ?
             ''', (status, paid_at, payment_id))
             await db.commit() 
+
+    async def get_appeals_for_current_ban(self, user_id, ban_start):
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute('SELECT * FROM appeals WHERE user_id = ? AND created_at >= ? ORDER BY created_at DESC', (user_id, ban_start)) as cursor:
+                return await cursor.fetchall() 
+
+    async def get_last_appeal_for_ban(self, user_id, ban_start):
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute('SELECT * FROM appeals WHERE user_id = ? AND created_at >= ? ORDER BY status = "pending" DESC, created_at DESC LIMIT 1', (user_id, ban_start)) as cursor:
+                return await cursor.fetchone() 

@@ -1,0 +1,6 @@
+{"timestamp": "2025-07-09 17:54:54", "event_type": "TEST_MODE_TOGGLE", "user_id": 1255790341, "status": "ВКЛЮЧЕН", "admin": "yanvd666"}
+{"timestamp": "2025-07-09 17:55:12", "event_type": "LINKS_RECEIVED", "user_id": 1255790341, "links": ["https://www.youtube.com/watch?v=xON5WKRefTI&t=399s"], "count": 1, "text": "https://www.youtube.com/watch?v=xON5WKRefTI&t=399s"}
+{"timestamp": "2025-07-09 17:55:13", "event_type": "LINK_PROCESSING_START", "user_id": 1255790341, "link": "https://www.youtube.com/watch?v=xON5WKRefTI&t=399s", "index": 1}
+{"timestamp": "2025-07-09 17:59:04", "event_type": "LINK_PROCESSED", "user_id": 1255790341, "link": "https://www.youtube.com/watch?v=xON5WKRefTI&t=399s", "index": 1, "duration": 1384.208, "processing_time": 231.80915, "success": true}
+{"timestamp": "2025-07-09 17:59:04", "event_type": "LINKS_PROCESSING_SUMMARY", "user_id": 1255790341, "count": 1, "total_duration": 1384.208, "all_success": true}
+{"timestamp": "2025-07-10 21:19:25", "event_type": "TEST_MODE_TOGGLE", "user_id": 1255790341, "status": "ВКЛЮЧЕН", "admin": "yanvd666"}
