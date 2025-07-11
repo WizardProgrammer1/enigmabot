@@ -74,64 +74,110 @@ class GoogleSpeechProvider(TranscriptionProvider):
             raise ValueError("GOOGLE_CLOUD_STORAGE_BUCKET не установлен в .env (имя бакета для хранения аудиофайлов)")
     
     def transcribe(self, file_path: str, language: str = 'ru') -> str:
-        result = self.transcribe_with_timestamps(file_path, language)
-        return result["text"]
+        try:
+            result = self.transcribe_with_timestamps(file_path, language)
+            return result["text"]
+        except Exception as e:
+            logging.error(f"Ошибка Google Speech API в transcribe: {e}")
+            return ""
 
     def transcribe_with_timestamps(self, file_path: str, language: str = 'ru') -> dict:
         from google.cloud import speech
         from google.cloud import storage
         import math
+        import tempfile
+        import subprocess
+        import os
+        
         client = speech.SpeechClient()
         
-        # Читаем аудиофайл
-        with open(file_path, "rb") as audio_file:
-            content = audio_file.read()
-        file_size = len(content)
+        # Конвертируем файл в WAV с правильными параметрами для Google Speech API
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_wav:
+            wav_path = tmp_wav.name
         
-        language_code = 'ru-RU' if language == 'ru' else 'en-US'
-        config = speech.RecognitionConfig(
-            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-            sample_rate_hertz=16000,
-            language_code=language_code,
-            enable_automatic_punctuation=True,
-            enable_word_time_offsets=True,
-            model="latest_long"
-        )
-        
-        # Google ограничивает recognize и long_running_recognize до 10 МБ для content
-        if file_size <= 10 * 1024 * 1024:
-            audio = speech.RecognitionAudio(content=content)
-            response = client.recognize(config=config, audio=audio)
-        else:
-            # Загружаем файл в Google Cloud Storage
-            storage_client = storage.Client()
-            bucket = storage_client.bucket(self.bucket_name)
-            blob_name = os.path.basename(file_path)
-            blob = bucket.blob(blob_name)
-            blob.upload_from_filename(file_path)
-            gcs_uri = f"gs://{self.bucket_name}/{blob_name}"
-            audio = speech.RecognitionAudio(uri=gcs_uri)
-            operation = client.long_running_recognize(config=config, audio=audio)
-            response = operation.result(timeout=1200)
-            # После распознавания удаляем файл из GCS
-            blob.delete()
-        
-        # Собираем текст и сегменты с таймкодами
-        full_text = ""
-        segments = []
-        for result in response.results:
-            alternative = result.alternatives[0]
-            full_text += alternative.transcript + " "
-            for word_info in alternative.words:
-                start = word_info.start_time.total_seconds()
-                end = word_info.end_time.total_seconds()
-                text = word_info.word
-                segments.append({
-                    "start": start,
-                    "end": end,
-                    "text": text
-                })
-        return {"text": full_text.strip(), "segments": segments}
+        try:
+            # Конвертируем в WAV 16kHz mono с помощью ffmpeg
+            subprocess.run([
+                'ffmpeg', '-i', file_path, '-ar', '16000', '-ac', '1', 
+                '-c:a', 'pcm_s16le', '-y', wav_path
+            ], check=True, capture_output=True)
+            
+            # Читаем конвертированный аудиофайл
+            with open(wav_path, "rb") as audio_file:
+                content = audio_file.read()
+            file_size = len(content)
+            
+            language_code = 'ru-RU' if language == 'ru' else 'en-US'
+            config = speech.RecognitionConfig(
+                encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                sample_rate_hertz=16000,
+                language_code=language_code,
+                enable_automatic_punctuation=True,
+                enable_word_time_offsets=True,
+                model="latest_long"
+            )
+            
+            # Google ограничивает recognize и long_running_recognize до 10 МБ для content
+            if file_size <= 10 * 1024 * 1024:
+                audio = speech.RecognitionAudio(content=content)
+                response = client.recognize(config=config, audio=audio)
+            else:
+                # Загружаем файл в Google Cloud Storage
+                storage_client = storage.Client()
+                bucket = storage_client.bucket(self.bucket_name)
+                blob_name = os.path.basename(wav_path)
+                blob = bucket.blob(blob_name)
+                blob.upload_from_filename(wav_path)
+                gcs_uri = f"gs://{self.bucket_name}/{blob_name}"
+                audio = speech.RecognitionAudio(uri=gcs_uri)
+                operation = client.long_running_recognize(config=config, audio=audio)
+                response = operation.result(timeout=1200)
+                # После распознавания удаляем файл из GCS
+                blob.delete()
+            
+            # Собираем текст и сегменты с таймкодами
+            full_text = ""
+            segments = []
+            
+            if not response.results:
+                return {"text": "", "segments": []}
+            
+            for result in response.results:
+                if not result.alternatives:
+                    continue
+                alternative = result.alternatives[0]
+                full_text += alternative.transcript + " "
+                
+                # Группируем слова в сегменты по времени
+                current_segment = {"start": 0, "end": 0, "text": ""}
+                for word_info in alternative.words:
+                    start = word_info.start_time.total_seconds()
+                    end = word_info.end_time.total_seconds()
+                    text = word_info.word
+                    
+                    # Если это первое слово или большой промежуток времени, начинаем новый сегмент
+                    if not current_segment["text"] or (start - current_segment["end"]) > 2.0:
+                        if current_segment["text"]:
+                            segments.append(current_segment)
+                        current_segment = {"start": start, "end": end, "text": text}
+                    else:
+                        # Добавляем к текущему сегменту
+                        current_segment["end"] = end
+                        current_segment["text"] += " " + text
+                
+                # Добавляем последний сегмент
+                if current_segment["text"]:
+                    segments.append(current_segment)
+            
+            return {"text": full_text.strip(), "segments": segments}
+            
+        except Exception as e:
+            logging.error(f"Ошибка Google Speech API: {e}")
+            return {"text": "", "segments": []}
+        finally:
+            # Удаляем временный WAV файл
+            if os.path.exists(wav_path):
+                os.remove(wav_path)
 
 class AzureSpeechProvider(TranscriptionProvider):
     """Azure Speech Services"""

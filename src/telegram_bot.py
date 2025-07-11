@@ -2062,19 +2062,80 @@ class TelegramBot:
                         orig_name = os.path.splitext(os.path.basename(file_path))[0]
                     except Exception:
                         orig_name = 'transcription'
-            duration = self.transcriber.get_duration(file_path)
-            if duration <= 300:
-                text_with_ts = self.transcriber.get_text_with_timestamps(file_path, lang_code)
-                MAX_TG_TEXT_LEN = 4096
-                if len(text_with_ts) > MAX_TG_TEXT_LEN:
+            
+            try:
+                duration = self.transcriber.get_duration(file_path)
+                if duration <= 300:
+                    text_with_ts = self.transcriber.get_text_with_timestamps(file_path, lang_code)
+                    
+                    # Проверяем, что текст не пустой
+                    if not text_with_ts or text_with_ts.strip() == "":
+                        try:
+                            await callback.answer('Не удалось получить транскрипцию с таймкодами. Попробуйте обычную транскрипцию.', show_alert=True)
+                        except Exception as callback_error:
+                            # Если callback тоже не работает (например, "Query is too old"), просто логируем
+                            print(f"Ошибка callback: {callback_error}")
+                        # Удаляем временный файл после использования
+                        if file_path and os.path.exists(file_path):
+                            os.remove(file_path)
+                        # Удаляем из user_files
+                        if (user_id, file_id) in self.user_files:
+                            del self.user_files[(user_id, file_id)]
+                        return
+                    
+                    MAX_TG_TEXT_LEN = 4096
+                    if len(text_with_ts) > MAX_TG_TEXT_LEN:
+                        docx_path = self.transcriber.get_docx_with_timestamps(file_path, lang_code)
+                        link = self.transcriber.upload_docx_to_gdrive(docx_path, filename=f"{orig_name}_transcript.docx")
+                        markup = InlineKeyboardMarkup(
+                            inline_keyboard=[
+                                [InlineKeyboardButton(text="Транскрипция с таймкодом", url=link)]
+                            ]
+                        )
+                        await callback.message.edit_text(
+                            f'Текст с таймкодами слишком длинный для чата. Вот ссылка на Google Docs:',
+                            reply_markup=markup
+                        )
+                        os.remove(docx_path)
+                        # Удаляем временный файл после использования
+                        if file_path and os.path.exists(file_path):
+                            os.remove(file_path)
+                        # Удаляем из user_files
+                        if (user_id, file_id) in self.user_files:
+                            del self.user_files[(user_id, file_id)]
+                    else:
+                        try:
+                            await callback.message.edit_text(text_with_ts, reply_markup=None)
+                            # Удаляем временный файл после использования
+                            if file_path and os.path.exists(file_path):
+                                os.remove(file_path)
+                            # Удаляем из user_files
+                            if (user_id, file_id) in self.user_files:
+                                del self.user_files[(user_id, file_id)]
+                        except Exception as e:
+                            # Логируем ошибку для отладки
+                            print(f"Ошибка при обновлении сообщения: {e}")
+                            try:
+                                await callback.answer('Не удалось обновить сообщение. Попробуйте позже.', show_alert=True)
+                            except Exception as callback_error:
+                                # Если callback тоже не работает (например, "Query is too old"), просто логируем
+                                print(f"Ошибка callback: {callback_error}")
+                            # Удаляем временный файл после использования
+                            if file_path and os.path.exists(file_path):
+                                os.remove(file_path)
+                            # Удаляем из user_files
+                            if (user_id, file_id) in self.user_files:
+                                del self.user_files[(user_id, file_id)]
+                else:
                     docx_path = self.transcriber.get_docx_with_timestamps(file_path, lang_code)
                     link = self.transcriber.upload_docx_to_gdrive(docx_path, filename=f"{orig_name}_transcript.docx")
+                    # Вместо edit_text отправляем новое сообщение, чтобы не было ошибки Telegram
                     markup = InlineKeyboardMarkup(
                         inline_keyboard=[
                             [InlineKeyboardButton(text="Транскрипция с таймкодом", url=link)]
                         ]
                     )
-                    await callback.message.edit_text(
+                    await callback.message.answer(
                         f'Текст с таймкодами слишком длинный для чата. Вот ссылка на Google Docs:',
                         reply_markup=markup
                     )
@@ -2085,31 +2146,14 @@ class TelegramBot:
                     # Удаляем из user_files
                     if (user_id, file_id) in self.user_files:
                         del self.user_files[(user_id, file_id)]
-                else:
-                    try:
-                        await callback.message.edit_text(text_with_ts, reply_markup=None)
-                        # Удаляем временный файл после использования
-                        if file_path and os.path.exists(file_path):
-                            os.remove(file_path)
-                        # Удаляем из user_files
-                        if (user_id, file_id) in self.user_files:
-                            del self.user_files[(user_id, file_id)]
-                    except Exception:
-                        await callback.answer('Не удалось обновить сообщение.', show_alert=True)
-            else:
-                docx_path = self.transcriber.get_docx_with_timestamps(file_path, lang_code)
-                link = self.transcriber.upload_docx_to_gdrive(docx_path, filename=f"{orig_name}_transcript.docx")
-                # Вместо edit_text отправляем новое сообщение, чтобы не было ошибки Telegram
-                markup = InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [InlineKeyboardButton(text="Транскрипция с таймкодом", url=link)]
-                    ]
-                )
-                await callback.message.answer(
-                    f'Текст с таймкодами слишком длинный для чата. Вот ссылка на Google Docs:',
-                    reply_markup=markup
-                )
-                os.remove(docx_path)
+            except Exception as e:
+                # Логируем ошибку для отладки
+                print(f"Ошибка при обработке таймкодов: {e}")
+                try:
+                    await callback.answer('Произошла ошибка при обработке файла. Попробуйте позже.', show_alert=True)
+                except Exception as callback_error:
+                    # Если callback тоже не работает (например, "Query is too old"), просто логируем
+                    print(f"Ошибка callback: {callback_error}")
                 # Удаляем временный файл после использования
                 if file_path and os.path.exists(file_path):
                     os.remove(file_path)

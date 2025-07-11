@@ -111,7 +111,7 @@ class Transcriber:
                 )
                 print(f"[WHISPER] LONG: chunk={tmp_chunk_path}")
                 if hasattr(self.provider, "model"):
-                    text = str(self.provider.model.transcribe(tmp_chunk_path, **Config.WHISPER_OPTIONS)['text']).strip()
+                    text = str(self.provider.model.transcribe(tmp_chunk_path, **Config.WHISPER_TIMESTAMPS_OPTIONS)['text']).strip()
                 else:
                     text = str(self.provider.transcribe(tmp_chunk_path, language)).strip()
                 results.append(text)
@@ -130,50 +130,119 @@ class Transcriber:
 
     def get_text_with_timestamps(self, file_path: str, language: str = 'ru') -> str:
         """Возвращает текст с таймкодами для файла."""
-        options = Config.WHISPER_OPTIONS.copy()
-        if language and language != 'other':
-            options['language'] = language
-        options['task'] = 'transcribe'
-        print(f"[WHISPER] TIMESTAMPS: file={file_path}, options={options}")
-        # Универсальная поддержка таймкодов
-        if hasattr(self.provider, "transcribe_with_timestamps"):
-            result = self.provider.transcribe_with_timestamps(file_path, language)
-            segments = result.get("segments", [])
-            if not segments:
-                return result.get("text", "")
-        elif hasattr(self.provider, "model"):
-            result = self.provider.model.transcribe(file_path, **options)
-            segments = result.get("segments", [])
-        else:
-            text = self.provider.transcribe(file_path, language)
-            return text
-        lines = []
-        for seg in segments:
-            if isinstance(seg, dict):
-                start = int(seg.get("start", 0))
-                start_str = str(timedelta(seconds=start))
-                text_val = seg.get("text", "")
-                lines.append(f"[{start_str}] {text_val.strip()}")
+        try:
+            options = Config.WHISPER_TIMESTAMPS_OPTIONS.copy()
+            if language and language != 'other':
+                options['language'] = language
+            options['task'] = 'transcribe'
+            print(f"[WHISPER] TIMESTAMPS: file={file_path}, options={options}")
+            
+            # Универсальная поддержка таймкодов
+            if hasattr(self.provider, "transcribe_with_timestamps"):
+                result = self.provider.transcribe_with_timestamps(file_path, language)
+                segments = result.get("segments", [])
+                if not segments:
+                    text = result.get("text", "")
+                    if text and text.strip():
+                        return text
+                    else:
+                        print(f"[TIMESTAMPS] No segments and no text found")
+                        return ""
+            elif hasattr(self.provider, "model"):
+                result = self.provider.model.transcribe(file_path, **options)
+                segments = result.get("segments", [])
+                if not segments:
+                    text = result.get("text", "")
+                    if text and text.strip():
+                        return text
+                    else:
+                        print(f"[TIMESTAMPS] No segments and no text found")
+                        return ""
             else:
-                lines.append(str(seg))
-        return "\n".join(lines)
+                text = self.provider.transcribe(file_path, language)
+                if text and text.strip():
+                    return text
+                else:
+                    print(f"[TIMESTAMPS] No text returned from provider")
+                    return ""
+            
+            # Обрабатываем сегменты
+            lines = []
+            for seg in segments:
+                if isinstance(seg, dict):
+                    start = int(seg.get("start", 0))
+                    start_str = str(timedelta(seconds=start))
+                    text_val = seg.get("text", "")
+                    if text_val and text_val.strip():
+                        lines.append(f"[{start_str}] {text_val.strip()}")
+                else:
+                    seg_str = str(seg).strip()
+                    if seg_str:
+                        lines.append(seg_str)
+            
+            result_text = "\n".join(lines)
+            if not result_text.strip():
+                print(f"[TIMESTAMPS] No valid segments found")
+                return ""
+            
+            return result_text
+        except Exception as e:
+            print(f"[TIMESTAMPS] ERROR: {e}")
+            return ""
 
     def get_docx_with_timestamps(self, file_path: str, language: str = 'ru', out_path: str = None) -> str:
         """Генерирует docx-файл с текстом и таймкодами, возвращает путь к файлу."""
-        options = Config.WHISPER_OPTIONS.copy()
-        if language and language != 'other':
-            options['language'] = language
-        options['task'] = 'transcribe'
-        print(f"[WHISPER] DOCX: file={file_path}, options={options}")
-        from docx import Document
-        doc = Document()
-        # Универсальная поддержка таймкодов
-        if hasattr(self.provider, "transcribe_with_timestamps"):
-            result = self.provider.transcribe_with_timestamps(file_path, language)
-            segments = result.get("segments", [])
-            if not segments:
+        try:
+            options = Config.WHISPER_TIMESTAMPS_OPTIONS.copy()
+            if language and language != 'other':
+                options['language'] = language
+            options['task'] = 'transcribe'
+            print(f"[DOCX] file={file_path}, options={options}")
+            from docx import Document
+            doc = Document()
+            
+            # Универсальная поддержка таймкодов
+            if hasattr(self.provider, "transcribe_with_timestamps"):
+                result = self.provider.transcribe_with_timestamps(file_path, language)
+                segments = result.get("segments", [])
+                if not segments:
+                    doc.add_heading('Транскрипция', 0)
+                    text = result.get("text", "")
+                    if text and text.strip():
+                        doc.add_paragraph(text)
+                    else:
+                        doc.add_paragraph("Транскрипция не найдена")
+                    if not out_path:
+                        import tempfile
+                        fd, out_path_tmp = tempfile.mkstemp(suffix='.docx')
+                        os.close(fd)
+                        out_path = out_path_tmp
+                    doc.save(out_path)
+                    return out_path
+            elif hasattr(self.provider, "model"):
+                result = self.provider.model.transcribe(file_path, **options)
+                segments = result.get("segments", [])
+                if not segments:
+                    doc.add_heading('Транскрипция', 0)
+                    text = result.get("text", "")
+                    if text and text.strip():
+                        doc.add_paragraph(text)
+                    else:
+                        doc.add_paragraph("Транскрипция не найдена")
+                    if not out_path:
+                        import tempfile
+                        fd, out_path_tmp = tempfile.mkstemp(suffix='.docx')
+                        os.close(fd)
+                        out_path = out_path_tmp
+                    doc.save(out_path)
+                    return out_path
+            else:
+                text = self.provider.transcribe(file_path, language)
                 doc.add_heading('Транскрипция', 0)
-                doc.add_paragraph(result.get("text", ""))
+                if text and text.strip():
+                    doc.add_paragraph(text)
+                else:
+                    doc.add_paragraph("Транскрипция не найдена")
                 if not out_path:
                     import tempfile
                     fd, out_path_tmp = tempfile.mkstemp(suffix='.docx')
@@ -181,13 +250,27 @@ class Transcriber:
                     out_path = out_path_tmp
                 doc.save(out_path)
                 return out_path
-        elif hasattr(self.provider, "model"):
-            result = self.provider.model.transcribe(file_path, **options)
-            segments = result.get("segments", [])
-        else:
-            text = self.provider.transcribe(file_path, language)
-            doc.add_heading('Транскрипция', 0)
-            doc.add_paragraph(text)
+            
+            # Обрабатываем сегменты
+            doc.add_heading('Транскрипция с таймкодами', 0)
+            valid_segments = 0
+            for seg in segments:
+                if isinstance(seg, dict):
+                    start = int(seg.get("start", 0))
+                    start_str = str(timedelta(seconds=start))
+                    text_val = seg.get("text", "")
+                    if text_val and text_val.strip():
+                        doc.add_paragraph(f"[{start_str}] {text_val.strip()}")
+                        valid_segments += 1
+                else:
+                    seg_str = str(seg).strip()
+                    if seg_str:
+                        doc.add_paragraph(seg_str)
+                        valid_segments += 1
+            
+            if valid_segments == 0:
+                doc.add_paragraph("Транскрипция с таймкодами не найдена")
+            
             if not out_path:
                 import tempfile
                 fd, out_path_tmp = tempfile.mkstemp(suffix='.docx')
@@ -195,22 +278,20 @@ class Transcriber:
                 out_path = out_path_tmp
             doc.save(out_path)
             return out_path
-        doc.add_heading('Транскрипция с таймкодами', 0)
-        for seg in segments:
-            if isinstance(seg, dict):
-                start = int(seg.get("start", 0))
-                start_str = str(timedelta(seconds=start))
-                text_val = seg.get("text", "")
-                doc.add_paragraph(f"[{start_str}] {text_val.strip()}")
-            else:
-                doc.add_paragraph(str(seg))
-        if not out_path:
-            import tempfile
-            fd, out_path_tmp = tempfile.mkstemp(suffix='.docx')
-            os.close(fd)
-            out_path = out_path_tmp
-        doc.save(out_path)
-        return out_path
+        except Exception as e:
+            print(f"[DOCX] ERROR: {e}")
+            # Создаем документ с сообщением об ошибке
+            from docx import Document
+            doc = Document()
+            doc.add_heading('Ошибка транскрипции', 0)
+            doc.add_paragraph(f"Произошла ошибка при создании транскрипции: {str(e)}")
+            if not out_path:
+                import tempfile
+                fd, out_path_tmp = tempfile.mkstemp(suffix='.docx')
+                os.close(fd)
+                out_path = out_path_tmp
+            doc.save(out_path)
+            return out_path
 
     def upload_docx_to_gdrive(self, docx_path: str, filename: str = None) -> str:
         """
@@ -282,7 +363,7 @@ class Transcriber:
                     .run()
                 )
                 if hasattr(self.provider, "model"):
-                    text = str(self.provider.model.transcribe(tmp_chunk_path, **options)['text']).strip()
+                    text = str(self.provider.model.transcribe(tmp_chunk_path, **Config.WHISPER_TIMESTAMPS_OPTIONS)['text']).strip()
                 else:
                     text = str(self.provider.transcribe(tmp_chunk_path, options.get('language', 'ru'))).strip()
                 results.append(text)

@@ -51,6 +51,18 @@ class Config:
         'initial_prompt': None
     }
     
+    # Whisper Configuration для тайм-кодов
+    WHISPER_TIMESTAMPS_OPTIONS = {
+        'fp16': False,
+        'temperature': 0.0,
+        'compression_ratio_threshold': 2.4,
+        'logprob_threshold': -1.0,
+        'no_speech_threshold': 0.6,
+        'condition_on_previous_text': True,
+        'initial_prompt': None,
+        'word_timestamps': True  # Включаем тайм-коды для слов
+    }
+    
     # API Configuration для платных сервисов
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     GOOGLE_CLOUD_CREDENTIALS = os.getenv('GOOGLE_CLOUD_CREDENTIALS')
