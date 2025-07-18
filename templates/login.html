@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход в админ-панель</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="login-container">
+        <h2>Админ-панель</h2>
+        <form method="post">
+            <label for="code">Код доступа</label>
+            <input type="text" id="code" name="code" maxlength="12" minlength="12" required placeholder="Введите 12-значный код">
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+            <button type="submit">Войти</button>
+        </form>
+    </div>
+</body>
+</html> 

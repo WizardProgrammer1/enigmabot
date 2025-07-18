@@ -1,6 +1,7 @@
 import aiosqlite
 import datetime
 from src.config import Config
+import secrets
 
 class UserRepository:
     def __init__(self, db_path=None):
@@ -121,6 +122,12 @@ class UserRepository:
             # Миграция: добавляем столбец language если его нет
             try:
                 await db.execute('ALTER TABLE users ADD COLUMN language TEXT DEFAULT "ru"')
+            except Exception:
+                pass
+            
+            # Миграция: добавляем столбец admin_code если его нет
+            try:
+                await db.execute('ALTER TABLE users ADD COLUMN admin_code TEXT DEFAULT NULL')
             except Exception:
                 pass
             
@@ -606,3 +613,27 @@ class UserRepository:
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute('SELECT * FROM appeals WHERE user_id = ? AND created_at >= ? ORDER BY status = "pending" DESC, created_at DESC LIMIT 1', (user_id, ban_start)) as cursor:
                 return await cursor.fetchone() 
+
+    async def generate_admin_code(self):
+        """Генерирует уникальный 12-значный код доступа для админки."""
+        return secrets.token_hex(6)[:12]
+
+    async def set_admin_code(self, user_id):
+        """Генерирует и устанавливает admin_code для пользователя-админа."""
+        code = await self.generate_admin_code()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute('UPDATE users SET admin_code=? WHERE id=? AND a_rank>0', (code, user_id))
+            await db.commit()
+        return code
+
+    async def remove_admin_code(self, user_id):
+        """Удаляет admin_code при снятии админки."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute('UPDATE users SET admin_code=NULL WHERE id=?', (user_id,))
+            await db.commit()
+
+    async def get_user_by_admin_code(self, code):
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute('SELECT * FROM users WHERE admin_code=? AND a_rank>0', (code,)) as cursor:
+                row = await cursor.fetchone()
+                return row 
